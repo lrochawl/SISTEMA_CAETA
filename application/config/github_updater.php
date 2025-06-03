@@ -5,42 +5,44 @@ if (! defined('BASEPATH')) {
 }
 
 /**
- * The user name of the git hub user who owns the repo
+ * O nome de usuário do GitHub proprietário do repositório
  */
-$config['github_user'] = 'RamonSilva20';
+$config['github_user'] = 'lrochawl';
 
 /**
- * The repo on GitHub we will be updating from
+ * O repositório no GitHub do qual estaremos atualizando
  */
-$config['github_repo'] = 'mapos';
+$config['github_repo'] = 'SISTEMA_CAETA';
 
 /**
- * The branch to update from
+ * O branch do qual atualizar
  */
-$config['github_branch'] = 'master';
+$config['github_branch'] = 'main'; // Ou 'master', ou o branch principal do seu repositório
 
 /**
- * The current commit the files are on.
+ * O commit atual em que os arquivos estão.
  *
- * NOTE: You should only need to set this initially it will be
- * automatically set by the library after subsequent updates.
+ * NOTA: Você só deve precisar definir isso inicialmente, ele será
+ * definido automaticamente pela biblioteca após atualizações subsequentes.
  */
-$config['current_commit'] = '53d35385917658bab3e048622325429d993f00de';
+$config['current_commit'] = '5d29e6e4e55bab007f903b5f5de79c1ab059009e';
 
 /**
- * A list of files or folders to never perform an update on.
- * Not specifying a relative path from the webroot will apply
- * the ignore to any files with a matching segment.
+ * Uma lista de arquivos ou pastas que nunca devem receber uma atualização.
+ * Não especificar um caminho relativo a partir do webroot aplicará
+ * a ignorância a quaisquer arquivos com um segmento correspondente.
  *
- * I.E. Specifying 'admin' as an ignore will ignore
+ * Ex: Especificar 'admin' como ignorado irá ignorar
  * 'application/controllers/admin.php'
  * 'application/views/admin/test.php'
- * and any other path with the term 'admin' in it.
+ * e qualquer outro caminho com o termo 'admin' nele.
  */
 $config['ignored_files'] = [];
 
 /**
- * Flag to indicate if the downloaded and extracted update files
- * should be removed
+ * Sinalizador para indicar se os arquivos de atualização baixados e extraídos
+ * devem ser removidos
  */
 $config['clean_update_files'] = true;
+
+?>

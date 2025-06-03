@@ -5,12 +5,12 @@ defined('BASEPATH') or exit('No direct script access allowed');
 /**
  * App current version
  */
-$config['app_version'] = '4.52.0';
+$config['app_version'] = '1.1.0';
 
 /**
  * Nome do sistema
  */
-$config['app_name'] = $_ENV['APP_NAME'] ?? 'Map-OS';
+$config['app_name'] = $_ENV['APP_NAME'] ?? 'Sitema WL Topos - Caeta';
 
 /**
  * Descrição do sistema
