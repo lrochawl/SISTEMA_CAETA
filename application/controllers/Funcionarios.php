@@ -16,7 +16,7 @@ if (!defined('BASEPATH')) {
  * @property CI_DB_query_builder $db
  * @property Permission $permission
  * @property Funcionarios_model $funcionarios_model
- * @property Usuarios_model $usuarios_model
+ * @property Usuarios_model $usuarios_model // Adicionado para o autoCompleteUsuario
  * @property CI_Loader $load
  */
 class Funcionarios extends MY_Controller
@@ -25,17 +25,15 @@ class Funcionarios extends MY_Controller
     {
         parent::__construct();
 
-        // Carrega bibliotecas e models essenciais para este controller
         $this->load->model('Funcionarios_model', 'funcionarios_model');
-        // A biblioteca 'permission' já deve ser carregada globalmente ou no MY_Controller
-        // Se não, descomente a linha abaixo ou adicione ao autoload.php / MY_Controller.php
-        // $this->load->library('permission');
+        // A biblioteca 'permission' e o 'general_helper' já devem ser carregados
+        // globalmente (via autoload.php) ou no MY_Controller.php
 
         if (!$this->session->userdata('logado')) {
             redirect('mapos/login');
         }
 
-        $this->data['menuFuncionarios'] = 'Funcionários'; // Para destacar o menu ativo
+        $this->data['menuFuncionarios'] = 'Funcionários';
     }
 
     public function index()
@@ -52,7 +50,7 @@ class Funcionarios extends MY_Controller
 
         $this->load->library('pagination');
 
-        $config['base_url'] = base_url('index.php/funcionarios/gerenciar');
+        $config['base_url'] = site_url('funcionarios/gerenciar'); // Usar site_url
         $config['total_rows'] = $this->funcionarios_model->count('funcionarios');
         $config['per_page'] = $this->data['configuration']['per_page'] ?? 10;
         $config['next_link'] = 'Próxima';
@@ -73,9 +71,12 @@ class Funcionarios extends MY_Controller
         $config['last_link'] = 'Última';
         $config['last_tag_open'] = '<li>';
         $config['last_tag_close'] = '</li>';
+        // Garante que a URI da paginação seja correta
+        $config['uri_segment'] = 3;
+
 
         $this->pagination->initialize($config);
-        $this->data['results'] = $this->funcionarios_model->get($config['per_page'], $this->uri->segment(3));
+        $this->data['results'] = $this->funcionarios_model->get($config['per_page'], $this->uri->segment($config['uri_segment']));
         $this->data['view'] = 'funcionarios/funcionarios';
         return $this->layout();
     }
@@ -84,21 +85,28 @@ class Funcionarios extends MY_Controller
     {
         if (!$this->permission->checkPermission($this->session->userdata('permissao'), 'aFuncionario')) {
             $this->session->set_flashdata('error', 'Você não tem permissão para adicionar funcionários.');
-            redirect(base_url('index.php/funcionarios/gerenciar'));
+            redirect(site_url('funcionarios/gerenciar'));
         }
 
         $this->load->library('form_validation');
         $this->data['custom_error'] = '';
 
+        // Regras de validação
         $this->form_validation->set_rules('nomeCompleto', 'Nome Completo', 'trim|required');
         $this->form_validation->set_rules('cpf', 'CPF', 'trim|required|callback_check_cpf_unique');
         $this->form_validation->set_rules('dataAdmissao', 'Data de Admissão', 'trim|required|regex_match[/^\d{2}\/\d{2}\/\d{4}$/]', ['regex_match' => 'O campo %s deve estar no formato dd/mm/aaaa.']);
         $this->form_validation->set_rules('cargo', 'Cargo/Função', 'trim|required');
         $this->form_validation->set_rules('situacaoFuncionario', 'Situação do Funcionário', 'trim|required');
-        $this->form_validation->set_rules('data_nascimento', 'Data de Nascimento', 'trim|regex_match[/^\d{2}\/\d{2}\/\d{4}$/]', ['regex_match' => 'O campo %s deve estar no formato dd/mm/aaaa.']);
-        $this->form_validation->set_rules('validade_cnh', 'Validade CNH', 'trim|regex_match[/^\d{2}\/\d{2}\/\d{4}$/]', ['regex_match' => 'O campo %s deve estar no formato dd/mm/aaaa.']);
-        $this->form_validation->set_rules('data_demissao', 'Data de Demissão', 'trim|regex_match[/^\d{2}\/\d{2}\/\d{4}$/]', ['regex_match' => 'O campo %s deve estar no formato dd/mm/aaaa.']);
-
+        // Validações opcionais de data
+        if ($this->input->post('data_nascimento')) {
+            $this->form_validation->set_rules('data_nascimento', 'Data de Nascimento', 'trim|regex_match[/^\d{2}\/\d{2}\/\d{4}$/]', ['regex_match' => 'O campo %s deve estar no formato dd/mm/aaaa.']);
+        }
+        if ($this->input->post('validade_cnh')) {
+            $this->form_validation->set_rules('validade_cnh', 'Validade CNH', 'trim|regex_match[/^\d{2}\/\d{2}\/\d{4}$/]', ['regex_match' => 'O campo %s deve estar no formato dd/mm/aaaa.']);
+        }
+        if ($this->input->post('data_demissao')) {
+            $this->form_validation->set_rules('data_demissao', 'Data de Demissão', 'trim|regex_match[/^\d{2}\/\d{2}\/\d{4}$/]', ['regex_match' => 'O campo %s deve estar no formato dd/mm/aaaa.']);
+        }
 
         if ($this->input->post('portal_email')) {
             $this->form_validation->set_rules('portal_email', 'E-mail de Acesso ao Portal', 'trim|valid_email|is_unique[funcionarios.portal_email]');
@@ -110,21 +118,16 @@ class Funcionarios extends MY_Controller
         if ($this->form_validation->run() == false) {
             $this->data['custom_error'] = (validation_errors() ? '<div class="alert alert-danger">' . validation_errors() . '</div>' : false);
         } else {
-            $dataAdmissao = $this->input->post('dataAdmissao');
-            $dataNascimento = $this->input->post('data_nascimento');
-            $validadeCnh = $this->input->post('validade_cnh');
-            $dataDemissao = $this->input->post('data_demissao');
-
             $dataFuncionario = [
                 'nome_completo' => $this->input->post('nomeCompleto'),
                 'cpf' => preg_replace('/[^0-9]/', '', $this->input->post('cpf')),
                 'rg' => $this->input->post('rg'),
-                'data_nascimento' => $dataNascimento ? date_to_db($dataNascimento) : null,
+                'data_nascimento' => $this->input->post('data_nascimento') ? data_format_mysql($this->input->post('data_nascimento')) : null,
                 'sexo' => $this->input->post('sexo'),
                 'foto_url' => $this->input->post('foto_url'),
                 'possui_cnh' => $this->input->post('possui_cnh') ? 1 : 0,
                 'categoria_cnh' => $this->input->post('categoria_cnh'),
-                'validade_cnh' => $validadeCnh ? date_to_db($validadeCnh) : null,
+                'validade_cnh' => $this->input->post('validade_cnh') ? data_format_mysql($this->input->post('validade_cnh')) : null,
                 'telefone_residencial' => $this->input->post('telefone_residencial'),
                 'celular_principal' => $this->input->post('celular_principal'),
                 'email_pessoal' => $this->input->post('email_pessoal'),
@@ -135,10 +138,10 @@ class Funcionarios extends MY_Controller
                 'bairro' => $this->input->post('bairro'),
                 'cidade' => $this->input->post('cidade'),
                 'estado' => $this->input->post('estado'),
-                'data_admissao' => date_to_db($dataAdmissao),
-                'data_demissao' => $dataDemissao ? date_to_db($dataDemissao) : null,
+                'data_admissao' => data_format_mysql($this->input->post('dataAdmissao')),
+                'data_demissao' => $this->input->post('data_demissao') ? data_format_mysql($this->input->post('data_demissao')) : null,
                 'cargo' => $this->input->post('cargo'),
-                'salario' => $this->input->post('salario') ? price_to_db($this->input->post('salario')) : null,
+                'salario' => $this->input->post('salario') ? money_format_to_mysql($this->input->post('salario')) : null,
                 'horario_trabalho' => $this->input->post('horario_trabalho'),
                 'tipo_contrato' => $this->input->post('tipo_contrato'),
                 'recebe_cesta_basica' => $this->input->post('recebe_cesta_basica') ? 1 : 0,
@@ -159,7 +162,7 @@ class Funcionarios extends MY_Controller
                 'pix_tipo_chave' => $this->input->post('pix_tipo_chave'),
                 'pix_chave' => $this->input->post('pix_chave'),
                 'portal_email' => $this->input->post('portal_email'),
-                'portal_senha' => $this->input->post('portal_senha'),
+                'portal_senha' => $this->input->post('portal_senha'), // O model fará o hash se não estiver vazia
                 'portal_status_acesso' => $this->input->post('portal_status_acesso') ? 1 : 0,
                 'observacoes' => $this->input->post('observacoes'),
                 'id_usuario_sistema' => $this->input->post('id_usuario_sistema_hidden') ?: null,
@@ -167,16 +170,16 @@ class Funcionarios extends MY_Controller
             ];
 
             if (empty($dataFuncionario['portal_email'])) {
-                unset($dataFuncionario['portal_senha']);
-                $dataFuncionario['portal_status_acesso'] = 0; // Garante que o status seja desativado
+                $dataFuncionario['portal_senha'] = null; // Garante que a senha seja nula
+                $dataFuncionario['portal_status_acesso'] = 0;
             } elseif (empty($dataFuncionario['portal_senha'])) {
-                unset($dataFuncionario['portal_senha']); // Não salva senha vazia se o email existir
+                unset($dataFuncionario['portal_senha']); // Não atualiza/insere senha se o campo estiver vazio
             }
 
             if ($this->funcionarios_model->add($dataFuncionario)) {
                 $this->session->set_flashdata('success', 'Funcionário adicionado com sucesso!');
                 log_info('Adicionou um funcionário: ' . $dataFuncionario['nome_completo']);
-                redirect(base_url('index.php/funcionarios/gerenciar'));
+                redirect(site_url('funcionarios/gerenciar'));
             } else {
                 $this->data['custom_error'] = '<div class="alert alert-danger">Ocorreu um erro ao adicionar o funcionário.</div>';
             }
@@ -190,12 +193,12 @@ class Funcionarios extends MY_Controller
         $idFuncionario = $this->uri->segment(3);
         if (!$idFuncionario || !is_numeric($idFuncionario)) {
             $this->session->set_flashdata('error', 'Item não pode ser encontrado, parâmetro não foi passado corretamente.');
-            redirect('funcionarios/gerenciar');
+            redirect(site_url('funcionarios/gerenciar'));
         }
 
         if (!$this->permission->checkPermission($this->session->userdata('permissao'), 'eFuncionario')) {
             $this->session->set_flashdata('error', 'Você não tem permissão para editar funcionários.');
-            redirect(base_url('index.php/funcionarios/gerenciar'));
+            redirect(site_url('funcionarios/gerenciar'));
         }
 
         $this->load->library('form_validation');
@@ -204,21 +207,30 @@ class Funcionarios extends MY_Controller
         $this->data['result'] = $this->funcionarios_model->getById($idFuncionario);
         if ($this->data['result'] == null) {
             $this->session->set_flashdata('error', 'Funcionário não encontrado.');
-            redirect(base_url('index.php/funcionarios/gerenciar'));
+            redirect(site_url('funcionarios/gerenciar'));
         }
 
+        // Regras de validação
         $this->form_validation->set_rules('nomeCompleto', 'Nome Completo', 'trim|required');
         $this->form_validation->set_rules('cpf', 'CPF', 'trim|required|callback_check_cpf_unique[' . $idFuncionario . ']');
         $this->form_validation->set_rules('dataAdmissao', 'Data de Admissão', 'trim|required|regex_match[/^\d{2}\/\d{2}\/\d{4}$/]', ['regex_match' => 'O campo %s deve estar no formato dd/mm/aaaa.']);
         $this->form_validation->set_rules('cargo', 'Cargo/Função', 'trim|required');
         $this->form_validation->set_rules('situacaoFuncionario', 'Situação do Funcionário', 'trim|required');
-        $this->form_validation->set_rules('data_nascimento', 'Data de Nascimento', 'trim|regex_match[/^\d{2}\/\d{2}\/\d{4}$/]', ['regex_match' => 'O campo %s deve estar no formato dd/mm/aaaa.']);
-        $this->form_validation->set_rules('validade_cnh', 'Validade CNH', 'trim|regex_match[/^\d{2}\/\d{2}\/\d{4}$/]', ['regex_match' => 'O campo %s deve estar no formato dd/mm/aaaa.']);
-        $this->form_validation->set_rules('data_demissao', 'Data de Demissão', 'trim|regex_match[/^\d{2}\/\d{2}\/\d{4}$/]', ['regex_match' => 'O campo %s deve estar no formato dd/mm/aaaa.']);
+        if ($this->input->post('data_nascimento')) {
+            $this->form_validation->set_rules('data_nascimento', 'Data de Nascimento', 'trim|regex_match[/^\d{2}\/\d{2}\/\d{4}$/]', ['regex_match' => 'O campo %s deve estar no formato dd/mm/aaaa.']);
+        }
+        if ($this->input->post('validade_cnh')) {
+            $this->form_validation->set_rules('validade_cnh', 'Validade CNH', 'trim|regex_match[/^\d{2}\/\d{2}\/\d{4}$/]', ['regex_match' => 'O campo %s deve estar no formato dd/mm/aaaa.']);
+        }
+        if ($this->input->post('data_demissao')) {
+             $this->form_validation->set_rules('data_demissao', 'Data de Demissão', 'trim|regex_match[/^\d{2}\/\d{2}\/\d{4}$/]', ['regex_match' => 'O campo %s deve estar no formato dd/mm/aaaa.']);
+        }
+
 
         if ($this->input->post('portal_email')) {
             $this->form_validation->set_rules('portal_email', 'E-mail de Acesso ao Portal', 'trim|valid_email|callback_check_portal_email_unique[' . $idFuncionario . ']');
         }
+        // Senha só é obrigatória se o email do portal estiver preenchido E se uma nova senha for digitada
         if ($this->input->post('portal_email') && $this->input->post('portal_senha')) {
             $this->form_validation->set_rules('portal_senha', 'Senha de Acesso ao Portal', 'trim|min_length[6]');
         }
@@ -226,21 +238,16 @@ class Funcionarios extends MY_Controller
         if ($this->form_validation->run() == false) {
             $this->data['custom_error'] = (validation_errors() ? '<div class="alert alert-danger">' . validation_errors() . '</div>' : false);
         } else {
-            $dataAdmissao = $this->input->post('dataAdmissao');
-            $dataNascimento = $this->input->post('data_nascimento');
-            $validadeCnh = $this->input->post('validade_cnh');
-            $dataDemissao = $this->input->post('data_demissao');
-
             $dataFuncionario = [
                 'nome_completo' => $this->input->post('nomeCompleto'),
                 'cpf' => preg_replace('/[^0-9]/', '', $this->input->post('cpf')),
                 'rg' => $this->input->post('rg'),
-                'data_nascimento' => $dataNascimento ? date_to_db($dataNascimento) : null,
+                'data_nascimento' => $this->input->post('data_nascimento') ? data_format_mysql($this->input->post('data_nascimento')) : null,
                 'sexo' => $this->input->post('sexo'),
                 'foto_url' => $this->input->post('foto_url'),
                 'possui_cnh' => $this->input->post('possui_cnh') ? 1 : 0,
                 'categoria_cnh' => $this->input->post('categoria_cnh'),
-                'validade_cnh' => $validadeCnh ? date_to_db($validadeCnh) : null,
+                'validade_cnh' => $this->input->post('validade_cnh') ? data_format_mysql($this->input->post('validade_cnh')) : null,
                 'telefone_residencial' => $this->input->post('telefone_residencial'),
                 'celular_principal' => $this->input->post('celular_principal'),
                 'email_pessoal' => $this->input->post('email_pessoal'),
@@ -251,10 +258,10 @@ class Funcionarios extends MY_Controller
                 'bairro' => $this->input->post('bairro'),
                 'cidade' => $this->input->post('cidade'),
                 'estado' => $this->input->post('estado'),
-                'data_admissao' => date_to_db($dataAdmissao),
-                'data_demissao' => $dataDemissao ? date_to_db($dataDemissao) : null,
+                'data_admissao' => data_format_mysql($this->input->post('dataAdmissao')),
+                'data_demissao' => $this->input->post('data_demissao') ? data_format_mysql($this->input->post('data_demissao')) : null,
                 'cargo' => $this->input->post('cargo'),
-                'salario' => $this->input->post('salario') ? price_to_db($this->input->post('salario')) : null,
+                'salario' => $this->input->post('salario') ? money_format_to_mysql($this->input->post('salario')) : null,
                 'horario_trabalho' => $this->input->post('horario_trabalho'),
                 'tipo_contrato' => $this->input->post('tipo_contrato'),
                 'recebe_cesta_basica' => $this->input->post('recebe_cesta_basica') ? 1 : 0,
@@ -292,7 +299,7 @@ class Funcionarios extends MY_Controller
             if ($this->funcionarios_model->edit($idFuncionario, $dataFuncionario)) {
                 $this->session->set_flashdata('success', 'Funcionário atualizado com sucesso!');
                 log_info('Editou um funcionário. ID: ' . $idFuncionario);
-                redirect(base_url('index.php/funcionarios/editar/') . $idFuncionario);
+                redirect(site_url('funcionarios/editar/') . $idFuncionario);
             } else {
                 $this->data['custom_error'] = '<div class="alert alert-danger"><p>Ocorreu um erro ao atualizar o funcionário.</p></div>';
             }
@@ -307,20 +314,19 @@ class Funcionarios extends MY_Controller
         $idFuncionario = $this->uri->segment(3);
         if (!$idFuncionario || !is_numeric($idFuncionario)) {
             $this->session->set_flashdata('error', 'Item não pode ser encontrado, parâmetro não foi passado corretamente.');
-            redirect('funcionarios/gerenciar');
+            redirect(site_url('funcionarios/gerenciar'));
         }
 
         if (!$this->permission->checkPermission($this->session->userdata('permissao'), 'vFuncionario')) {
             $this->session->set_flashdata('error', 'Você não tem permissão para visualizar funcionários.');
-            redirect(base_url('index.php/funcionarios/gerenciar'));
+            redirect(site_url('funcionarios/gerenciar'));
         }
 
-        $this->data['custom_error'] = '';
         $this->data['result'] = $this->funcionarios_model->getById($idFuncionario);
 
         if ($this->data['result'] == null) {
             $this->session->set_flashdata('error', 'Funcionário não encontrado.');
-            redirect(base_url('index.php/funcionarios/gerenciar'));
+            redirect(site_url('funcionarios/gerenciar'));
         }
 
         $this->data['view'] = 'funcionarios/visualizarFuncionario';
@@ -331,33 +337,33 @@ class Funcionarios extends MY_Controller
     {
         if (!$this->permission->checkPermission($this->session->userdata('permissao'), 'dFuncionario')) {
             $this->session->set_flashdata('error', 'Você não tem permissão para excluir funcionários.');
-            redirect(base_url('index.php/funcionarios/gerenciar'));
+            redirect(site_url('funcionarios/gerenciar'));
         }
 
         $id = $this->input->post('id');
         if ($id == null || !is_numeric($id)) {
             $this->session->set_flashdata('error', 'Erro ao tentar excluir funcionário: ID inválido.');
-            redirect(base_url('index.php/funcionarios/gerenciar'));
+            redirect(site_url('funcionarios/gerenciar'));
         }
-
-        // Adicionar verificação para não excluir funcionário vinculado a registros importantes (se necessário)
 
         if ($this->funcionarios_model->delete($id)) {
             log_info('Removeu um funcionário. ID: ' . $id);
             $this->session->set_flashdata('success', 'Funcionário excluído com sucesso!');
         } else {
-            $this->session->set_flashdata('error', 'Erro ao tentar excluir o funcionário.');
+            $this->session->set_flashdata('error', 'Erro ao tentar excluir o funcionário. Verifique se ele não possui dependências no sistema.');
         }
-        redirect(base_url('index.php/funcionarios/gerenciar'));
+        redirect(site_url('funcionarios/gerenciar'));
     }
 
     public function check_cpf_unique($cpf, $idFuncionario = null)
     {
-        $cpf = preg_replace('/[^0-9]/', '', $cpf);
-        if (empty($cpf)) { // Não validar se o CPF estiver vazio, a regra 'required' cuidará disso.
+        $cpf_limpo = preg_replace('/[^0-9]/', '', $cpf);
+        if (empty($cpf_limpo)) {
+            // Se o CPF for obrigatório, a regra 'required' da validação principal deve pegá-lo.
+            // Se for opcional e estiver vazio, não há o que validar como único.
             return true;
         }
-        if ($this->funcionarios_model->getByCpf($cpf, $idFuncionario)) {
+        if ($this->funcionarios_model->getByCpf($cpf_limpo, $idFuncionario)) {
             $this->form_validation->set_message('check_cpf_unique', 'Este CPF já está cadastrado para outro funcionário.');
             return false;
         }
@@ -382,14 +388,14 @@ class Funcionarios extends MY_Controller
             $q = strtolower($this->input->get('term'));
             $this->load->model('usuarios_model');
             $this->db->select('idUsuarios, nome, email');
-            $this->db->like('LOWER(nome)', $q); // Usar LOWER para busca case-insensitive no banco
-            $this->db->or_like('LOWER(email)', $q);
+            $this->db->like('LOWER(nome)', $q, 'both');
+            $this->db->or_like('LOWER(email)', $q, 'both');
             $this->db->where('situacao', 1);
             $this->db->limit(10);
             $query = $this->db->get('usuarios');
 
             $result = [];
-            if ($query->num_rows() > 0) {
+            if ($query && $query->num_rows() > 0) {
                 foreach ($query->result_array() as $row) {
                     $result[] = ['label' => $row['nome'] . ' (Email: ' . $row['email'] . ')', 'id' => $row['idUsuarios'], 'value' => $row['nome'] . ' (Email: ' . $row['email'] . ')'];
                 }
