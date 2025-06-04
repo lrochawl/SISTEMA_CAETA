@@ -186,13 +186,13 @@
                                                 </div>
                                             </div>
                                         </div>
-                                        <div class="accordion-group widget-box">
+                                       <div class="accordion-group widget-box">
                                             <div class="accordion-heading">
                                                 <div class="widget-title">
                                                     <a data-parent="#collapse-group" href="#collapseGFuncionarios" data-toggle="collapse">
                                                         <span><i class='fas fa-id-badge icon-cli'></i></span>
                                                         <h5 style="padding-left: 28px">Funcionários</h5>
-                                                    </a>
+                                                        <span><i class='bx bx-chevron-right icon-clic'></i></span> </a>
                                                 </div>
                                             </div>
                                             <div class="collapse accordion-body" id="collapseGFuncionarios">
@@ -202,25 +202,25 @@
                                                             <tr>
                                                                 <td>
                                                                     <label>
-                                                                        <input name="vFuncionario" class="marcar" type="checkbox" value="1" />
+                                                                        <input <?php if (isset($permissoes['vFuncionario']) && $permissoes['vFuncionario'] == '1') { echo 'checked'; } ?> name="vFuncionario" class="marcar" type="checkbox" value="1" />
                                                                         <span class="lbl"> Visualizar Funcionários</span>
                                                                     </label>
                                                                 </td>
                                                                 <td>
                                                                     <label>
-                                                                        <input name="aFuncionario" class="marcar" type="checkbox" value="1" />
+                                                                        <input <?php if (isset($permissoes['aFuncionario']) && $permissoes['aFuncionario'] == '1') { echo 'checked'; } ?> name="aFuncionario" class="marcar" type="checkbox" value="1" />
                                                                         <span class="lbl"> Adicionar Funcionários</span>
                                                                     </label>
                                                                 </td>
                                                                 <td>
                                                                     <label>
-                                                                        <input name="eFuncionario" class="marcar" type="checkbox" value="1" />
+                                                                        <input <?php if (isset($permissoes['eFuncionario']) && $permissoes['eFuncionario'] == '1') { echo 'checked'; } ?> name="eFuncionario" class="marcar" type="checkbox" value="1" />
                                                                         <span class="lbl"> Editar Funcionários</span>
                                                                     </label>
                                                                 </td>
                                                                 <td>
                                                                     <label>
-                                                                        <input name="dFuncionario" class="marcar" type="checkbox" value="1" />
+                                                                        <input <?php if (isset($permissoes['dFuncionario']) && $permissoes['dFuncionario'] == '1') { echo 'checked'; } ?> name="dFuncionario" class="marcar" type="checkbox" value="1" />
                                                                         <span class="lbl"> Excluir Funcionários</span>
                                                                     </label>
                                                                 </td>
